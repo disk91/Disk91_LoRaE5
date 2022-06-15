@@ -115,6 +115,24 @@ bool extractHexStr(const char * src, uint8_t * dst, uint8_t * sz) {
    return true;
 }
 
+// copy a float number into dst string
+bool extractNumber(const char * src, char *dst, int maxSz) {
+    int idx = 0;
+    for ( idx = 0 ; idx < maxSz-1 ; idx ++ ) {
+       if ( src[idx] != ',' && src[idx] != ' ' && src[idx] != '\0' ) {
+         dst[idx] = src[idx];
+       } else {
+         break;
+       }
+    }
+    if ( idx < maxSz-1 ) {
+       dst[idx] = '\0';  
+       return true;
+    }
+    return false;
+}
+
+
 bool Disk91_LoRaE5::processRead( Disk91_LoRaE5 * wrap) {
     if ( startsWith(wrap->bufResponse,"+EEPROM: **, **") ) {
      int s = indexOf(wrap->bufResponse,"PROM: ");
@@ -586,6 +604,25 @@ bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack
 // =============================================================================
 // Send Data
 
+bool Disk91_LoRaE5::send_sync(    // send a message on LoRaWan, return true when sent is a success 
+        uint8_t     port,               // LoRaWan port
+        uint8_t *   data,               // Data / payload to be transmitted
+        uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
+        bool        acked ,             // Ack / Downlink request
+        uint8_t     sf ,                // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr ,               // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        uint8_t     retries             // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
+){
+    this->sendReceive( port, data, sz, acked, NULL, NULL, NULL, NULL, sf, pwr, retries, false );
+}
+
+bool Disk91_LoRaE5::join_sync(    // send a message on LoRaWan, return true when sent is a success 
+        uint8_t     sf,             // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr             // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+){
+    this->sendReceive( 0, NULL, 0, false, NULL, NULL, NULL, NULL, sf, pwr, 0, false );
+}
+
 
 bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true when sent is a success 
     uint8_t     port,               // LoRaWan port
@@ -595,6 +632,8 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
                                     // Downlink Callback, return size of downlink, 0 when ack, -1 for none, as a parameter the buffer 
     int8_t      (*rxCallback)(uint8_t *),
     uint8_t *   rxBuffer,           // Downlink buffer, make sure it will be large enought, no verification
+    uint8_t *   rxSize,             // uint8_t containing the rxBuffer size and returning the downlink message size
+    uint8_t *   rxPort,             // uint8_t pointer for returnin the downlink port
     uint8_t     sf,                 // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
     uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
     uint8_t     retries,            // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
@@ -602,12 +641,12 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
 ) {
   char _cmd[128];
 
-  if ( sz == 0 && this->hasJoined && !ack ) return true; // basicaly nothing to do
+  if ( sz == 0 && this->hasJoined && !acked ) return true; // basicaly nothing to do
 
   if ( pwr != DSKLORAE5_DW_UNCHANGED && this->lastPower != pwr ) {
     // set power (E5 automatically set to max if higher than max allowed)
     sprintf(_cmd,"AT+POWER=%d",pwr);
-    if ( sendATCommand(_cmd,"+POWER:","+POWER: ERR","",DEFAULT_TIMEOUT,false,NULL) ) {
+    if ( sendATCommand(_cmd,"+POWER:","+POWER: ERR","",this->atTimeout,false,NULL) ) {
       this->lastPower = pwr;
     } else {
       this->tracef(F("LoRaE5 - Failed to set power\r\n"));
@@ -622,9 +661,9 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
   if ( sf != DSKLORAE5_SF_UNCHANGED && this->lastSf != sf ) {
     // set sf 
     boolean retDr = true;
-    if ( this->zone == ZONE_EU868 
-      || this->zone == ZONE_AS923_1 || this->zone == ZONE_AS923_2 || this->zone == ZONE_AS923_3 || this->zone == ZONE_AS923_4
-      || this->zone == ZONE_KR920 || this->zone == ZONE_IN865 || this->zone == ZONE_AU915 ) {
+    if ( this->currentZone == DSKLORAE5_ZONE_EU868 
+      || this->currentZone == DSKLORAE5_ZONE_AS923_1 || this->currentZone == DSKLORAE5_ZONE_AS923_2 || this->currentZone == DSKLORAE5_ZONE_AS923_3 || this->currentZone == DSKLORAE5_ZONE_AS923_4
+      || this->currentZone == DSKLORAE5_ZONE_KR920 || this->currentZone == DSKLORAE5_ZONE_IN865 || this->currentZone == DSKLORAE5_ZONE_AU915 ) {
       // DR0 - SF12 / DR5 - SF7
       switch (sf) {
         case 7:
@@ -649,7 +688,7 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
              this->tracef(F("LoRaE5 - Invalid SF\r\n"));
              return false;
       }
-    } else if ( this->zone == ZONE_US915 ) {
+    } else if ( this->currentZone == DSKLORAE5_ZONE_US915 ) {
       // DR0 - SF10 / DR3 - SF7
       switch (sf) {
         case 7:
@@ -709,15 +748,8 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
     // make it simple, the first frame will be lost during join
     // 1% based on SF and data size (24 Bytes)
     // @TODO also consider ack
-    switch (this->lastSf) {
-      case 7:  this->estimatedDCMs += 8200;  break;
-      case 8:  this->estimatedDCMs += 14400; break;
-      case 9:  this->estimatedDCMs += 26700; break;
-      case 10: this->estimatedDCMs += 49400; break;
-      case 11: this->estimatedDCMs += 106900; break;
-      default:
-      case 12: this->estimatedDCMs += 197400; break;
-    }
+    this->estimatedDCMs += 100*this->estimateTxDuration(this->lastSf,__DSKLORAE5_JOINREQ_PAYLOADSZ,1);
+    bool ret = true;
     if ( async && sz == 0) {
         // We just want a join w/o uplink so we can make it async
         ret = sendATCommand("AT+JOIN","+JOIN: Network joined","+JOIN: Join failed","+JOIN: Done",__DSKLORAE5_JOIN_TIMEOUT,true,NULL);
@@ -734,7 +766,7 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
   } 
   if ( this->hasJoined && sz > 0 ) {
       // now we can send the uplink message
-      uint32_t txDuration = this->interFrameDutyCycleEstimate(this->lastSf,sz,this->retries+1);
+      uint32_t txDuration = this->estimateTxDuration(this->lastSf,sz,this->lastRetry+1);
       this->estimatedDCMs += 100*txDuration;
       if (acked) {
         sprintf(_cmd,"AT+CMSGHEX=");
@@ -748,10 +780,16 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
       }
       this->hasAcked = false;
       this->downlinkPending = false;
-
+      this->downlinkReceived = false;
+      this->lastSize = sz;
+      this->lastRssi = 0;
+      this->lastSnr = 0;
       bool ret;  
       if (acked) {
-          ret = sendATCommand(_cmd,"+CMSGHEX: Done","","",__DSKLORAE5_TX_TIMEOUT_BASE+txDuration+__DSKLORAE5_TX_TIMEOUT_ACK*(this->retries+1),async,processTx);     
+          this->_rxBuffer = rxBuffer;
+          this->_rxSize = rxSize;
+          this->_rxPort = rxPort;
+          ret = sendATCommand(_cmd,"+CMSGHEX: Done","","",__DSKLORAE5_TX_TIMEOUT_BASE+txDuration+__DSKLORAE5_TX_TIMEOUT_ACK*(this->lastRetry+1),async,processTx);     
       } else {
           ret = sendATCommand(_cmd,"+MSGHEX: Done","","",__DSKLORAE5_TX_TIMEOUT_BASE+txDuration,async,processTx);           
       }
@@ -759,16 +797,89 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
   } 
 }
 
+
+
+// ---------------------------------------------------------------------
+// Manage transmission response asynchronously
+// example :
+// 12:23:29.618 -> AT+CMSGHEX=20591A02324505490C07
+// 12:23:29.721 -> +CMSGHEX: Start
+// 12:23:29.721 -> +CMSGHEX: Wait ACK
+// 12:23:33.559 -> +CMSGHEX: ACK Received
+// 12:23:33.592 -> +CMSGHEX: PORT: 2; RX: "3E9999010101"
+// 12:23:33.627 -> +CMSGHEX: RXWIN1, RSSI -84, SNR 6.0
+// 12:23:33.627 -> +CMSGHEX: Done
+bool Disk91_LoRaE5::processTx(Disk91_LoRaE5 * wrap) {
+  if ( startsWith(wrap->bufResponse,"+CMSGHEX: RXWIN*, RSSI") ) {
+     int s = indexOf(wrap->bufResponse,"RSSI ");
+     wrap->lastRssi = 0;
+     wrap->lastSnr = 0;
+     if ( s > 0 ) {
+        char sRssi[10];
+        if ( extractNumber(&wrap->bufResponse[s], sRssi,10) ) {
+           wrap->lastRssi = (int16_t)atof(sRssi);
+        }
+     }
+     s = indexOf(wrap->bufResponse,"SNR ");
+     if ( s > 0 ) {
+        char sSnr[10];
+        if ( extractNumber(&wrap->bufResponse[s], sSnr,10) ) {
+           wrap->lastSnr = (int16_t)atof(sSnr);
+        }
+     }
+     wrap->hasAcked = true;
+  } else if (startsWith(wrap->bufResponse,"+CMSGHEX: Done")) {
+    uint32_t elapsedTime = millis() - wrap->startTime;
+    if ( wrap->hasAcked ) {
+      // will see later if we want to use this
+      uint8_t retries = elapsedTime / wrap->estimateTxDuration(wrap->lastSf,wrap->lastSize,1); // really approximative approach
+    } else {
+      //Serial.printf("Add Data for seq(%d) rssi(%d) snr(%d) [Lost]\r\n",loraContext.currentSeqId,(int16_t)0, (int16_t)0);
+    }
+    // update the Duty cycle based on real retry estimate
+    wrap->currentSeqId = (wrap->currentSeqId + 1) & 0xFFFF ;
+  } else if ( startsWith(wrap->bufResponse,"+CMSGHEX: FPEND") ) {
+    // downlink pending
+    wrap->downlinkPending = true;
+  } else if ( startsWith(wrap->bufResponse,"+CMSGHEX: PORT: *; RX: ") ) {
+    // downlink content
+    int s = indexOf(wrap->bufResponse,"PORT: ");
+    int port=0;
+    if ( s > 0 ) {
+       char sPort[10];
+       if ( extractNumber(&wrap->bufResponse[s], sPort,10) ) {
+          port = atoi(sPort);
+          if ( wrap->_rxPort != NULL ) *wrap->_rxPort = port;
+       }
+    }
+    s = indexOf(wrap->bufResponse,"RX: \"");
+    if ( s > 0 & wrap->_rxBuffer != NULL && wrap->_rxSize != NULL ) {
+       uint8_t downlink[__DSKLORAE5_ATRESP_BUFF_SZ];
+       uint8_t sz = __DSKLORAE5_ATRESP_BUFF_SZ;
+       if ( extractHexStr(&wrap->bufResponse[s], downlink, &sz) ) {
+           if ( sz > *wrap->_rxSize ) sz = *wrap->_rxSize;
+           bcopy(downlink, wrap->_rxBuffer,sz);
+           *wrap->_rxSize = sz;
+       }
+    }
+    wrap->hasAcked = true;
+  } else {
+    // unprocessed lines
+  }
+  return false;
+}
+
+
 // estimate the duty-cycle, this is really approximative and to compensate the absence of this 
 // infomration from the LoRaE5
 uint32_t Disk91_LoRaE5::estimateTxDuration(uint8_t sf, uint8_t payloadSz, uint8_t retries) {
-   if ( this->zone == DSKLORAE5_ZONE_EU868 ) {
+   if ( this->currentZone == DSKLORAE5_ZONE_EU868 ) {
       // EU868
       // 1% based on SF and data size (10 Bytes)
       // @TODO also consider ack
       // @TODO make this more generic considering payload size
       if ( retries == 0 ) retries = 1;
-      switch (_dr) {
+      switch (sf) {
           case 7:  return (retries*(  4630+payloadSz* 225))/100; 
           case 8:  return (retries*(  9270+payloadSz* 256))/100; 
           case 9:  return (retries*( 16490+payloadSz* 450))/100;

@@ -70,9 +70,10 @@
 #define __HWSERIAL_T                  Uart         // type to be used for hardware serial, apprantly different are existing
 #define __DSKLORAE5_DEFAULT_AT_TMOUT  2000         // default time for AT command timeout in Ms
 #define __DSKLORAE5_JOIN_TIMEOUT     12000         // Specific timeout for Join procedure in Ms
-#define __DSKLORAE5_TX_TIMEOUT_BASE   2000         // Specific timeout for Tx w/o ack ( tx time will be added )
+#define __DSKLORAE5_TX_TIMEOUT_BASE   3200         // Specific timeout for Tx w/o ack ( tx time will be added )
 #define __DSKLORAE5_TX_TIMEOUT_ACK    2000         // Time to add for Ack / Downlink frames
-
+#define __DSKLORAE5_JOINREQ_PAYLOADSZ   24         // Estimation of a Join Req frame as a normal frame with a given payload of 24bytes
+                                                   //   looking for a source to get a better estimate
 
 #define __DSKLORAE5_NONDCZONE_DC         0         // Eventually force a duty cycle when a zone does not have one
 
@@ -93,6 +94,9 @@ private:
     char                  bufEnding[__DSKLORAE5_ATCMD_BUFF_SZ];
     char                  bufResponse[__DSKLORAE5_ATRESP_BUFF_SZ];
     uint8_t               bufInt8;          // Just a single byte buffer for returning value from callback
+    uint8_t    *          _rxBuffer;        // store the rxbuffer for async processing
+    uint8_t    *          _rxSize;          // store the rxbuffer size pointer
+    uint8_t    *          _rxPort;          // store the rxport pointer for async process
     uint16_t              respIndex;        // processing response, index in buffer
                                             // Function for processing AT response line
     bool                  (*lineProcessing)(Disk91_LoRaE5 *);
@@ -108,8 +112,14 @@ protected:
     int8_t                lastSf;           // Last SpreadFactor for communication __DSKLORAE5_UNSET when not configured
     int8_t                lastPower;        // Last Power for communication __DSKLORAE5_UNSET_POWER when not configured
     int8_t                lastRetry;        // Last Retry for communication __DSKLORAE5_UNSET when not configured
+    uint8_t               lastSize;         // last uplink size
+    uint32_t              lastSendMs;       // last message sent timestamp
+    int16_t               lastRssi;         // last ack / downlink RSSI
+    int16_t               lastSnr;          // last ack / downlink SNR
     uint16_t              currentSeqId;     // Next communication estimated SeqId (the module does not allow to access it, so ... a bit a mess)
     bool                  downlinkPending;  // true when a downlink communication is pending 
+    bool                  downlinkReceived; // true when a downlink has been received
+    bool                  hasAcked;         // true when the uplink has been acked
     uint8_t               currentZone;      // The current zone set into the module for optimization
     uint32_t              estimatedDCMs;    // Next communication autorization for when DC management is not delegated to module (DC zone only)
 
@@ -142,6 +152,8 @@ protected:
     uint32_t estimateTxDuration(uint8_t sf, uint8_t payloadSz, uint8_t retries);
     bool testPresence();                    // return true when the LoRaE5 board has been found on the selected port
     void end();                             // close the library
+    
+    static bool processTx(Disk91_LoRaE5 * wrap);   // Process each of the line recaived from e5 when a tx request has been made
 
 public:
     Disk91_LoRaE5(
@@ -186,8 +198,37 @@ public:
             uint8_t   appkey[]      // applicationKEY in the normal order for the bytes
     );
 
+    bool sendReceive(    // send a message on LoRaWan, return true when sent is a success 
+        uint8_t     port,               // LoRaWan port
+        uint8_t *   data,               // Data / payload to be transmitted
+        uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
+        bool        acked,              // Ack / Downlink request
+                                        // Downlink Callback, return size of downlink, 0 when ack, -1 for none, as a parameter the buffer 
+                                        //  can't yet be used... set NULL
+        int8_t      (*rxCallback)(uint8_t *),
+        uint8_t *   rxBuffer,           // Downlink buffer, make sure it will be large enought, no verification
+        uint8_t *   rxSize,             // uint8_t containing the rxBuffer size and returning the downlink message size
+        uint8_t *   rxPort,             // uint8_t pointer for returnin the downlink port
+        uint8_t     sf,                 // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        uint8_t     retries,            // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
+        bool        async               // When true, the processing is made synchronously
+    );
 
+    bool send_sync(    // send a message on LoRaWan, return true when sent is a success 
+        uint8_t     port,               // LoRaWan port
+        uint8_t *   data,               // Data / payload to be transmitted
+        uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
+        bool        acked = false,      // Ack / Downlink request
+        uint8_t     sf = 9,             // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr = 14,           // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        uint8_t     retries = 0         // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
+    );
 
+    bool join_sync(    // Join only (join is automatically executed on send but you can decide to join sepratly)
+        uint8_t     sf = 9,             // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr = 14            // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+    );
 };
 
 
