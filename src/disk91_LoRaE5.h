@@ -56,6 +56,8 @@
 #define DSKLORAE5_DW_UNCHANGED      0xFF          // Keep the previous Tx Power
 #define DSKLORAE5_RT_UNCHANGED      0xFF          // Keep the previous Retries
 
+#define DSKLORAE5_INVALID_RSSI      -999
+#define DSKLORAE5_INVALID_SNR       -99
 
 // ==========================================================
 // Some internal param
@@ -229,6 +231,12 @@ public:
         uint8_t     sf = 9,             // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
         uint8_t     pwr = 14            // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
     );
+
+    bool isJoined();                    // return true when the device has joined the network
+    bool isAcked();                     // return true when the previous uplink has been confirmed as received
+    int16_t getRssi();                  // return last Ack RSSI when the previous uplink has been confirmed as received or DSKLORAE5_INVALID_RSSI
+    int16_t getSnr();                   // return last Ack SNR when the previous uplink has been confirmed as received or DSKLORAE5_INVALID_SNR
+
 };
 
 

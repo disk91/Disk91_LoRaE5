@@ -603,6 +603,19 @@ bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack
 
 // =============================================================================
 // Send Data
+/*
+bool Disk91_LoRaE5::sendReceive_sync(    // send a message on LoRaWan, return true when sent is a success and expect a ack
+        uint8_t     port,               // LoRaWan port
+        uint8_t *   data,               // Data / payload to be transmitted
+        uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
+        bool        acked ,             // Ack / Downlink request
+        uint8_t     sf ,                // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr ,               // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        uint8_t     retries             // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
+){
+    this->sendReceive( port, data, sz, acked, NULL, NULL, NULL, NULL, sf, pwr, retries, false );
+}
+*/
 
 bool Disk91_LoRaE5::send_sync(    // send a message on LoRaWan, return true when sent is a success 
         uint8_t     port,               // LoRaWan port
@@ -1030,4 +1043,22 @@ bool Disk91_LoRaE5::processATResponse() {
       }
   }
   return false;
+}
+
+// =============================================================================
+// Getters
+bool Disk91_LoRaE5::isAcked() {
+    return this->hasAcked;
+}
+
+bool Disk91_LoRaE5::isJoined() {
+    return this->hasJoined;
+}
+
+int16_t Disk91_LoRaE5::getRssi() {
+    return (this->hasAcked )?this->lastRssi:DSKLORAE5_INVALID_RSSI;
+}
+
+int16_t Disk91_LoRaE5::getSnr() {
+    return (this->hasAcked )?this->lastSnr:DSKLORAE5_INVALID_SNR;
 }
