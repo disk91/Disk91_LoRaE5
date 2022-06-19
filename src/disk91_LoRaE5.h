@@ -73,7 +73,7 @@
 #define __DSKLORAE5_DEFAULT_AT_TMOUT  2000         // default time for AT command timeout in Ms
 #define __DSKLORAE5_JOIN_TIMEOUT     12000         // Specific timeout for Join procedure in Ms
 #define __DSKLORAE5_TX_TIMEOUT_BASE   3200         // Specific timeout for Tx w/o ack ( tx time will be added )
-#define __DSKLORAE5_TX_TIMEOUT_ACK    2000         // Time to add for Ack / Downlink frames
+#define __DSKLORAE5_TX_TIMEOUT_ACK    3500         // Time to add for Ack / Downlink frames
 #define __DSKLORAE5_JOINREQ_PAYLOADSZ   24         // Estimation of a Join Req frame as a normal frame with a given payload of 24bytes
                                                    //   looking for a source to get a better estimate
 
@@ -111,6 +111,7 @@ protected:
     uint16_t              atTimeout;        // At command timeout (in ms)
     bool                  hasJoined;        // true when the module has joined network
     bool                  isJoining;        // true when the join procedure is in progress
+    bool                  isBusy;           // true when the communication failed potentially due to duty-cycle
     int8_t                lastSf;           // Last SpreadFactor for communication __DSKLORAE5_UNSET when not configured
     int8_t                lastPower;        // Last Power for communication __DSKLORAE5_UNSET_POWER when not configured
     int8_t                lastRetry;        // Last Retry for communication __DSKLORAE5_UNSET when not configured
@@ -157,16 +158,36 @@ protected:
     
     static bool processTx(Disk91_LoRaE5 * wrap);   // Process each of the line recaived from e5 when a tx request has been made
 
+    bool sendReceive(    // send a message on LoRaWan, return true when sent is a success 
+        uint8_t     port,               // LoRaWan port
+        uint8_t *   data,               // Data / payload to be transmitted
+        uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
+        bool        acked,              // Ack / Downlink request
+                                        // Downlink Callback, return size of downlink, 0 when ack, -1 for none, as a parameter the buffer 
+                                        //  can't yet be used... set NULL
+        int8_t      (*rxCallback)(uint8_t *),
+        uint8_t *   rxBuffer,           // Downlink buffer, make sure it will be large enought, no verification
+        uint8_t *   rxSize,             // uint8_t containing the rxBuffer size and returning the downlink message size
+        uint8_t *   rxPort,             // uint8_t pointer for returnin the downlink port
+        uint8_t     sf,                 // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        uint8_t     retries,            // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
+        bool        async               // When true, the processing is made synchronously
+    );
+
 public:
     Disk91_LoRaE5(
-        uint16_t   atTimeoutMs = __DSKLORAE5_DEFAULT_AT_TMOUT,   // Default timeout for AT command execution
-        Serial_  * logSerial = NULL                              // When set, the library debug is enabled               
+        bool       nothing = false       // if anyone can explain me why w/o param the constructer generate compilation error ?!?
     );
 
     Disk91_LoRaE5(
-        Serial_  * logSerial = NULL                              // When set, the library debug is enabled               
+        uint16_t   atTimeoutMs,          // Default timeout in Ms for AT command execution
+        Serial_  * logSerial = NULL      // When set, the library debug is enabled               
     );
 
+    Disk91_LoRaE5(
+        Serial_  * logSerial = NULL      // When set, the library debug is enabled               
+    );
 
     ~Disk91_LoRaE5();
 
@@ -200,21 +221,19 @@ public:
             uint8_t   appkey[]      // applicationKEY in the normal order for the bytes
     );
 
-    bool sendReceive(    // send a message on LoRaWan, return true when sent is a success 
+    bool haveStoredConfig();    // Returns true when a configuration has already been stored in the E5 memory
+    bool clearStoredConfig();   // Purge the stored configuration for E5
+
+    bool sendReceive_sync(      // send a message on LoRaWan expert an ack at least, eventually a downlink, return true when sent is a success and expect a ack
         uint8_t     port,               // LoRaWan port
         uint8_t *   data,               // Data / payload to be transmitted
         uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
-        bool        acked,              // Ack / Downlink request
-                                        // Downlink Callback, return size of downlink, 0 when ack, -1 for none, as a parameter the buffer 
-                                        //  can't yet be used... set NULL
-        int8_t      (*rxCallback)(uint8_t *),
         uint8_t *   rxBuffer,           // Downlink buffer, make sure it will be large enought, no verification
         uint8_t *   rxSize,             // uint8_t containing the rxBuffer size and returning the downlink message size
         uint8_t *   rxPort,             // uint8_t pointer for returnin the downlink port
-        uint8_t     sf,                 // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
-        uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
-        uint8_t     retries,            // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
-        bool        async               // When true, the processing is made synchronously
+        uint8_t     sf = 9,             // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr = 14,           // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        uint8_t     retries = 0         // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
     );
 
     bool send_sync(    // send a message on LoRaWan, return true when sent is a success 
@@ -234,6 +253,8 @@ public:
 
     bool isJoined();                    // return true when the device has joined the network
     bool isAcked();                     // return true when the previous uplink has been confirmed as received
+    bool isDownlinkPending();           // return true when the previous uplink got a downlink pending response
+    bool isDownlinkReceived();          // return true when the previous uplink got a downlink response
     int16_t getRssi();                  // return last Ack RSSI when the previous uplink has been confirmed as received or DSKLORAE5_INVALID_RSSI
     int16_t getSnr();                   // return last Ack SNR when the previous uplink has been confirmed as received or DSKLORAE5_INVALID_SNR
 

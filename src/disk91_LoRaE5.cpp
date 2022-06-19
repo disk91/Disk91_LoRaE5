@@ -196,6 +196,29 @@ bool Disk91_LoRaE5::persistConfig(  // Store the LoRaWan configuration into modu
     return ret;
 }
 
+bool Disk91_LoRaE5::clearStoredConfig( // Purge the stored configuration for E5
+) {
+    bool ret = true;
+    for ( int i = 0 ; i < sizeof(struct s_persist) ; i++ ) {
+        ret &= this->storeOneByte(i,0x00);
+    }
+    return ret;
+}
+
+
+bool Disk91_LoRaE5::haveStoredConfig( // Returns true when a configuration has already been stored in the E5 memory
+) {
+    bool ret = true;
+    struct s_persist p;
+    uint8_t * pp =  (uint8_t *)&p;
+    for ( int i = 0 ; i < sizeof(struct s_persist) ; i++ ) {
+        ret &= this->readOneByte(i,&pp[i]);
+    }
+    if ( !ret || p.version != 0x01 ) {
+        return false;
+    }
+    return true;
+}
 
 // =============================================================================
 // Constructor / Destructors
@@ -207,6 +230,7 @@ Disk91_LoRaE5::Disk91_LoRaE5(
     this->debugUart = logSerial;
     this->runningCommand = false;
     this->atTimeout = atTimeoutMs;
+    this->currentZone = DSKLORAE5_ZONE_UNDEFINED;
     this->estimatedDCMs = 0;
 }
 
@@ -219,6 +243,17 @@ Disk91_LoRaE5::Disk91_LoRaE5(
     this->currentZone = DSKLORAE5_ZONE_UNDEFINED;
     this->estimatedDCMs = 0;
 }
+
+Disk91_LoRaE5::Disk91_LoRaE5(
+    bool nothing                            // Strange complilation behavior, no param is not accepted
+){
+    this->debugUart = NULL;
+    this->runningCommand = false;
+    this->atTimeout = __DSKLORAE5_DEFAULT_AT_TMOUT;
+    this->currentZone = DSKLORAE5_ZONE_UNDEFINED;
+    this->estimatedDCMs = 0;
+}
+
 
 Disk91_LoRaE5::~Disk91_LoRaE5(){
       this->end();              
@@ -603,27 +638,29 @@ bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack
 
 // =============================================================================
 // Send Data
-/*
-bool Disk91_LoRaE5::sendReceive_sync(    // send a message on LoRaWan, return true when sent is a success and expect a ack
+
+bool Disk91_LoRaE5::sendReceive_sync(  // send a message on LoRaWan expert an ack at least, eventually a downlink, return true when sent is a success and expect a ack
         uint8_t     port,               // LoRaWan port
         uint8_t *   data,               // Data / payload to be transmitted
         uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
-        bool        acked ,             // Ack / Downlink request
-        uint8_t     sf ,                // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
-        uint8_t     pwr ,               // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        uint8_t *   rxBuffer,           // Downlink buffer, make sure it will be large enought, no verification
+        uint8_t *   rxSize,             // uint8_t containing the rxBuffer size and returning the downlink message size
+        uint8_t *   rxPort,             // uint8_t pointer for returnin the downlink port
+        uint8_t     sf,                 // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
         uint8_t     retries             // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
 ){
-    this->sendReceive( port, data, sz, acked, NULL, NULL, NULL, NULL, sf, pwr, retries, false );
+    this->sendReceive( port, data, sz, true, NULL, rxBuffer, rxSize, rxPort, sf, pwr, retries, false );
 }
-*/
+
 
 bool Disk91_LoRaE5::send_sync(    // send a message on LoRaWan, return true when sent is a success 
         uint8_t     port,               // LoRaWan port
         uint8_t *   data,               // Data / payload to be transmitted
         uint8_t     sz,                 // Size of the data, when 0 Join only is proceeded
-        bool        acked ,             // Ack / Downlink request
-        uint8_t     sf ,                // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
-        uint8_t     pwr ,               // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
+        bool        acked,              // Ack / Downlink request
+        uint8_t     sf,                 // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
+        uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
         uint8_t     retries             // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
 ){
     this->sendReceive( port, data, sz, acked, NULL, NULL, NULL, NULL, sf, pwr, retries, false );
@@ -655,6 +692,7 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
   char _cmd[128];
 
   if ( sz == 0 && this->hasJoined && !acked ) return true; // basicaly nothing to do
+  if ( this->runningCommand ) return false; // re-entering
 
   if ( pwr != DSKLORAE5_DW_UNCHANGED && this->lastPower != pwr ) {
     // set power (E5 automatically set to max if higher than max allowed)
@@ -797,6 +835,7 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
       this->lastSize = sz;
       this->lastRssi = 0;
       this->lastSnr = 0;
+      this->isBusy = false;
       bool ret;  
       if (acked) {
           this->_rxBuffer = rxBuffer;
@@ -806,6 +845,7 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
       } else {
           ret = sendATCommand(_cmd,"+MSGHEX: Done","","",__DSKLORAE5_TX_TIMEOUT_BASE+txDuration,async,processTx);           
       }
+      if ( !async && this->isBusy ) ret = false;
       return ret;
   } 
 }
@@ -823,7 +863,7 @@ bool Disk91_LoRaE5::sendReceive(    // send a message on LoRaWan, return true wh
 // 12:23:33.627 -> +CMSGHEX: RXWIN1, RSSI -84, SNR 6.0
 // 12:23:33.627 -> +CMSGHEX: Done
 bool Disk91_LoRaE5::processTx(Disk91_LoRaE5 * wrap) {
-  if ( startsWith(wrap->bufResponse,"+CMSGHEX: RXWIN*, RSSI") ) {
+  if ( startsWith(wrap->bufResponse,"+CMSGHEX: RXWIN*, RSSI") || startsWith(wrap->bufResponse,"+MSGHEX: RXWIN*, RSSI")) {
      int s = indexOf(wrap->bufResponse,"RSSI ");
      wrap->lastRssi = 0;
      wrap->lastSnr = 0;
@@ -841,7 +881,7 @@ bool Disk91_LoRaE5::processTx(Disk91_LoRaE5 * wrap) {
         }
      }
      wrap->hasAcked = true;
-  } else if (startsWith(wrap->bufResponse,"+CMSGHEX: Done")) {
+  } else if (startsWith(wrap->bufResponse,"+CMSGHEX: Done") || startsWith(wrap->bufResponse,"+MSGHEX: Done")) {
     uint32_t elapsedTime = millis() - wrap->startTime;
     if ( wrap->hasAcked ) {
       // will see later if we want to use this
@@ -851,10 +891,10 @@ bool Disk91_LoRaE5::processTx(Disk91_LoRaE5 * wrap) {
     }
     // update the Duty cycle based on real retry estimate
     wrap->currentSeqId = (wrap->currentSeqId + 1) & 0xFFFF ;
-  } else if ( startsWith(wrap->bufResponse,"+CMSGHEX: FPEND") ) {
+  } else if ( startsWith(wrap->bufResponse,"+CMSGHEX: FPEND") ||  startsWith(wrap->bufResponse,"+MSGHEX: FPEND")) {
     // downlink pending
     wrap->downlinkPending = true;
-  } else if ( startsWith(wrap->bufResponse,"+CMSGHEX: PORT: *; RX: ") ) {
+  } else if ( startsWith(wrap->bufResponse,"+CMSGHEX: PORT: *; RX: ") || startsWith(wrap->bufResponse,"+MSGHEX: PORT: *; RX: ") ) {
     // downlink content
     int s = indexOf(wrap->bufResponse,"PORT: ");
     int port=0;
@@ -876,6 +916,9 @@ bool Disk91_LoRaE5::processTx(Disk91_LoRaE5 * wrap) {
        }
     }
     wrap->hasAcked = true;
+    wrap->downlinkReceived = true;
+  } else if (startsWith(wrap->bufResponse,"+CMSGHEX: LoRaWAN modem is busy") || startsWith(wrap->bufResponse,"+MSGHEX: LoRaWAN modem is busy")) {
+    wrap->isBusy = true;
   } else {
     // unprocessed lines
   }
@@ -1053,6 +1096,14 @@ bool Disk91_LoRaE5::isAcked() {
 
 bool Disk91_LoRaE5::isJoined() {
     return this->hasJoined;
+}
+
+bool Disk91_LoRaE5::isDownlinkPending() {
+    return this->downlinkPending;
+}
+
+bool Disk91_LoRaE5::isDownlinkReceived() {
+    return this->downlinkReceived;
 }
 
 int16_t Disk91_LoRaE5::getRssi() {
