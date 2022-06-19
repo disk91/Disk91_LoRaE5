@@ -3,6 +3,11 @@ This Arduino Library is making LoRa-E5 development much simpler for developper
 LoRa-E5 is a LoRaWAN module make by Seeed studio.
 
 ## Installation
+- Download the Zip file from the github **releases** menu
+- In Arduino, go to sketch / include library / Add a library ZIP
+- Load the downloaded Zip file
+- Now you can import the library (Disk91 LoRaE5 library)
+- Watch the examples in Arduino / Files / Examples / Disk91 LoRa-E5 library   
 
 ## Supported feature
 - LoRaE5 module detection over different Serial ports on WIO
