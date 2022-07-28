@@ -72,7 +72,7 @@
 #define __HWSERIAL_T                  Uart         // type to be used for hardware serial, apprantly different are existing
 #define __DSKLORAE5_DEFAULT_AT_TMOUT  2000         // default time for AT command timeout in Ms
 #define __DSKLORAE5_JOIN_TIMEOUT     12000         // Specific timeout for Join procedure in Ms
-#define __DSKLORAE5_TX_TIMEOUT_BASE   3200         // Specific timeout for Tx w/o ack ( tx time will be added )
+#define __DSKLORAE5_TX_TIMEOUT_BASE   8000         // Specific timeout for Tx w/o ack ( tx time will be added )
 #define __DSKLORAE5_TX_TIMEOUT_ACK    3500         // Time to add for Ack / Downlink frames
 #define __DSKLORAE5_JOINREQ_PAYLOADSZ   24         // Estimation of a Join Req frame as a normal frame with a given payload of 24bytes
                                                    //   looking for a source to get a better estimate
@@ -136,15 +136,15 @@ protected:
     void tracef(const __FlashStringHelper *format, ...);
     #endif
 
-    bool sendATCommand(                     // Send an AT command to the E5 module
-        const char * cmd,                       // command to be sent
-        const char * okResp,                    // expected char string to be find in response to consider the AT execution a success, * is a joker
-        const char * errResp,                   // expected char string to be find in response to consider the AT execution a failure, * is a joker, null is err if not ok
-        const char * ending,                    // expected char string to be find in response to consider end of AT command, null means timeout (slower)
-        uint32_t timeoutMs,                     // timeout for getting a response  from E5
-        bool async,                             // async processing with the E5 loop.
-        bool (*lineProcessing)(Disk91_LoRaE5 *) // callback function to process each line of the E5 response
-    ); 
+    // bool sendATCommand(                     // Send an AT command to the E5 module
+    //     const char * cmd,                       // command to be sent
+    //     const char * okResp,                    // expected char string to be find in response to consider the AT execution a success, * is a joker
+    //     const char * errResp,                   // expected char string to be find in response to consider the AT execution a failure, * is a joker, null is err if not ok
+    //     const char * ending,                    // expected char string to be find in response to consider end of AT command, null means timeout (slower)
+    //     uint32_t timeoutMs,                     // timeout for getting a response  from E5
+    //     bool async,                             // async processing with the E5 loop.
+    //     bool (*lineProcessing)(Disk91_LoRaE5 *) // callback function to process each line of the E5 response
+    // ); 
 
     bool storeOneByte(                      // Store 1 byte of data into the E5 eeprom memory
         uint8_t adr, uint8_t v);  
@@ -206,19 +206,31 @@ public:
 
     bool setup(                     // Setup the LoRaWAN stack
         uint8_t   zone,             // radio zone selection
-        uint8_t   deveui[],         // deviceEUI in the normal order for the bytes
-        uint8_t   appeui[],         // applicationEUI in the normal order for the bytes
-        uint8_t   appkey[],         // applicationKEY in the normal order for the bytes
+        // uint8_t   deveui[],         // deviceEUI in the normal order for the bytes
+        // uint8_t   appeui[],         // applicationEUI in the normal order for the bytes
+        // uint8_t   appkey[],         // applicationKEY in the normal order for the bytes
+        char   deveui[],           // deviceEUI in the normal order for the bytes
+        char   appeui[],           // applicationEUI in the normal order for the bytes
+        char   appkey[],           // applicationKEY in the normal order for the bytes
         bool      selfDC = false,   // when true, the duty cycle management is not managed by the module but the user application
         bool      withADR = false   // when true, the ADR is turned ON
+    );
+
+    bool setup_sensecap(                          // Setup the LoRaWAN stack
+        uint8_t   zone,                  // radio zone selection
+        bool      selfDC = false,        // when true, the duty cycle management is not managed by the module but the user application
+        bool      withADR  = false       // when true, the ADR is turned ON
     );
 
     bool persistConfig(             // Store the LoRaWan configuration into module EEPROM for restoring later 
                                     //   this allows to update WIO firmware without loosing the LoRaWan credentials
             uint8_t   zone,         // radio zone selection
-            uint8_t   deveui[],     // deviceEUI in the normal order for the bytes
-            uint8_t   appeui[],     // applicationEUI in the normal order for the bytes
-            uint8_t   appkey[]      // applicationKEY in the normal order for the bytes
+            // uint8_t   deveui[],     // deviceEUI in the normal order for the bytes
+            // uint8_t   appeui[],     // applicationEUI in the normal order for the bytes
+            // uint8_t   appkey[]      // applicationKEY in the normal order for the bytes
+            char   deveui[],       // deviceEUI in the normal order for the bytes
+            char   appeui[],       // applicationEUI in the normal order for the bytes
+            char   appkey[]        // applicationKEY in the normal order for the bytes
     );
 
     bool haveStoredConfig();    // Returns true when a configuration has already been stored in the E5 memory
@@ -250,6 +262,16 @@ public:
         uint8_t     sf = 9,             // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
         uint8_t     pwr = 14            // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
     );
+
+    bool sendATCommand(                     // Send an AT command to the E5 module
+        const char * cmd,                       // command to be sent
+        const char * okResp,                    // expected char string to be find in response to consider the AT execution a success, * is a joker
+        const char * errResp,                   // expected char string to be find in response to consider the AT execution a failure, * is a joker, null is err if not ok
+        const char * ending,                    // expected char string to be find in response to consider end of AT command, null means timeout (slower)
+        uint32_t timeoutMs,                     // timeout for getting a response  from E5
+        bool async,                             // async processing with the E5 loop.
+        bool (*lineProcessing)(Disk91_LoRaE5 *) // callback function to process each line of the E5 response
+    ); 
 
     bool isJoined();                    // return true when the device has joined the network
     bool isAcked();                     // return true when the previous uplink has been confirmed as received

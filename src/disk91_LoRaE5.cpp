@@ -169,29 +169,40 @@ bool Disk91_LoRaE5::readOneByte(uint8_t adr, uint8_t * v) {
 // Persistance
 struct s_persist {
     uint8_t version;
-    uint8_t deveui[8];
-    uint8_t appeui[8];
-    uint8_t appkey[16];
+    // uint8_t deveui[8];
+    // uint8_t appeui[8];
+    // uint8_t appkey[16];
+    char deveui[16];
+    char appeui[16];
+    char appkey[32];
     uint8_t zone;
     uint8_t recomp[6];
 };
 
 bool Disk91_LoRaE5::persistConfig(  // Store the LoRaWan configuration into module EEPROM for restoring later 
         uint8_t   zone,             // radio zone selection
-        uint8_t   deveui[],         // deviceEUI in the normal order for the bytes
-        uint8_t   appeui[],         // applicationEUI in the normal order for the bytes
-        uint8_t   appkey[]          // applicationKEY in the normal order for the bytes
+        // uint8_t   deveui[],         // deviceEUI in the normal order for the bytes
+        // uint8_t   appeui[],         // applicationEUI in the normal order for the bytes
+        // uint8_t   appkey[]          // applicationKEY in the normal order for the bytes
+        char   deveui[16],         // deviceEUI in the normal order for the bytes
+        char   appeui[16],         // applicationEUI in the normal order for the bytes
+        char   appkey[32]
 ) {
     bool ret = true;
     struct s_persist p;
     uint8_t * pp =  (uint8_t *)&p;
     p.version = 0x01;
     p.zone = zone;
+    //bcopy(zone,p.zone,20);
     bcopy(deveui,p.deveui,8);
     bcopy(appeui,p.appeui,8);
     bcopy(appkey,p.appkey,16);
-    for ( int i = 0 ; i < sizeof(struct s_persist) ; i++ ) {
-        ret &= this->storeOneByte(i,pp[i]);
+    // p.deveui = deveui;
+    // p.appeui = appeui;
+    // p.appkey = appkey;
+    for (int i = 0; i < sizeof(struct s_persist); i++)
+    {
+      ret &= this->storeOneByte(i, pp[i]);
     }
     return ret;
 }
@@ -475,9 +486,12 @@ bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack with the stored credentia
 
 bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack
     uint8_t   zone,         // radio zone selection
-    uint8_t   deveui[],     // deviceEUI in the normal order for the bytes
-    uint8_t   appeui[],     // applicationEUI in the normal order for the bytes
-    uint8_t   appkey[],     // applicationKEY in the normal order for the bytes
+    // uint8_t   deveui[],     // deviceEUI in the normal order for the bytes
+    // uint8_t   appeui[],     // applicationEUI in the normal order for the bytes
+    // uint8_t   appkey[],     // applicationKEY in the normal order for the bytes
+    char   deveui[],     // deviceEUI in the normal order for the bytes
+    char   appeui[],     // applicationEUI in the normal order for the bytes
+    char   appkey[],     // applicationKEY in the normal order for the bytes
     bool      selfDC,       // when true, the duty cycle management is not managed by the module but the user application
     bool      withADR       // when true, the ADR is turned ON
 ) {
@@ -584,49 +598,168 @@ bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack
     }
 
     // Setup Ids
-    sprintf(_cmd,"AT+ID=DevEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
-      deveui[0],
-      deveui[1],
-      deveui[2],
-      deveui[3],
-      deveui[4],
-      deveui[5],
-      deveui[6],
-      deveui[7]
-    );
-    ret &= sendATCommand(_cmd,"+ID: DevEui","+ID: ERR","",this->atTimeout,false,NULL);
-    
-    sprintf(_cmd,"AT+ID=AppEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
-      appeui[0],
-      appeui[1],
-      appeui[2],
-      appeui[3],
-      appeui[4],
-      appeui[5],
-      appeui[6],
-      appeui[7]
-    );
-    ret &= sendATCommand(_cmd,"+ID: AppEui","+ID: ERR","",this->atTimeout,false,NULL);
+    // sprintf(_cmd,"AT+ID=DevEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
+    //   deveui[0],
+    //   deveui[1],
+    //   deveui[2],
+    //   deveui[3],
+    //   deveui[4],
+    //   deveui[5],
+    //   deveui[6],
+    //   deveui[7]
+    // );
+    sprintf(_cmd, "AT+ID=DevEUI,%s", deveui);
+    ret &= sendATCommand(_cmd, "+ID: DevEui", "+ID: ERR", "", this->atTimeout, false, NULL);
 
-    sprintf(_cmd,"AT+KEY=APPKEY,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-      appkey[0],
-      appkey[1],
-      appkey[2],
-      appkey[3],
-      appkey[4],
-      appkey[5],
-      appkey[6],
-      appkey[7],
-      appkey[8],
-      appkey[9],
-      appkey[10],
-      appkey[11],
-      appkey[12],
-      appkey[13],
-      appkey[14],
-      appkey[15]
-    );
+    // sprintf(_cmd,"AT+ID=AppEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
+    //   appeui[0],
+    //   appeui[1],
+    //   appeui[2],
+    //   appeui[3],
+    //   appeui[4],
+    //   appeui[5],
+    //   appeui[6],
+    //   appeui[7]
+    // );
+    sprintf(_cmd, "AT+ID=AppEUI,%s", appeui);
+    ret &= sendATCommand(_cmd, "+ID: AppEui", "+ID: ERR", "", this->atTimeout, false, NULL);
+
+    // sprintf(_cmd,"AT+KEY=APPKEY,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+    //   appkey[0],
+    //   appkey[1],
+    //   appkey[2],
+    //   appkey[3],
+    //   appkey[4],
+    //   appkey[5],
+    //   appkey[6],
+    //   appkey[7],
+    //   appkey[8],
+    //   appkey[9],
+    //   appkey[10],
+    //   appkey[11],
+    //   appkey[12],
+    //   appkey[13],
+    //   appkey[14],
+    //   appkey[15]
+    // );
+    sprintf(_cmd, "AT+KEY=APPKEY,%s", appkey);
     ret &= sendATCommand(_cmd,"+KEY: APPKEY","+KEY: ERR","",this->atTimeout,false,NULL);
+    ret &= sendATCommand("AT+MODE=LWOTAA","+MODE: LWOTAA","+MODE: ERR","",this->atTimeout,false,NULL);    
+    if ( !ret ) {
+        this->tracef(F("LoRaE5 - Failed to configure credentials\r\n"));
+        return false;
+    }
+    this->tracef(F("LoRaE5 - setup OK\r\n"));
+    return true;
+}
+
+bool Disk91_LoRaE5::setup_sensecap(  // Setup the LoRaWAN stack
+    uint8_t   zone,         // radio zone selection
+    bool      selfDC,       // when true, the duty cycle management is not managed by the module but the user application
+    bool      withADR       // when true, the ADR is turned ON
+) {
+    char _cmd[128];
+    bool ret = true;
+    sendATCommand("AT+UART=TIMEOUT,0","+UART: TIMEOUT","","",this->atTimeout,false, NULL);
+    // Setup region
+    if ( this->currentZone != zone  ) { 
+        this->currentZone = zone;
+
+        if ( zone == DSKLORAE5_ZONE_EU868 ) {
+            ret &= sendATCommand("AT+DR=EU868","+DR: EU868","+DR: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=3,867.1,0,5","+CH: 3,8671","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=4,867.3,0,5","+CH: 4,8673","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=5,867.5,0,5","+CH: 5,8675","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=6,867.7,0,5","+CH: 6,8677","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=7,867.9,0,5","+CH: 7,8679","+CH: ERR","",this->atTimeout,false,NULL);
+            if ( selfDC ) {
+                ret &= sendATCommand("AT+LW=DC,OFF","+LW: DC, OFF","+LW: ERR","",this->atTimeout,false,NULL); // manually managed to avoid conflicts
+                ret &= sendATCommand("AT+LW=JDC,OFF","+LW: JDC, OFF","+LW: ERR","",this->atTimeout,false,NULL); // manually managed to avoid conflicts  
+            }
+        } else if ( zone == DSKLORAE5_ZONE_US915 ) {
+            ret &= sendATCommand("AT+DR=US915","+DR: US915","+DR: ERR","",this->atTimeout,false,NULL);
+            // unvalidate the subband other than 2
+            for ( int i=0 ; i < 72 ; i++ ) {
+                if ( i < 8 || i > 15 ) {
+                    sprintf(_cmd,"AT+CH=%d,OFF",i);
+                    ret &= sendATCommand(_cmd,"+CH: CH","+CH: ERR","",this->atTimeout,false,NULL);  
+                }
+            }
+        } else if ( zone == DSKLORAE5_ZONE_AS923_1 ) {
+            /*  According to https://github.com/helium/router
+                923.6 MHz
+                923.8 MHz
+                924.0 MHz
+                924.2 MHz
+                924.4 MHz
+            */
+            ret &= sendATCommand("AT+DR=AS923","+DR: AS923","+DR: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=0,923.2,0,5","+CH: 0,9232","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=1,923.4,0,5","+CH: 1,9234","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=2,923.6,0,5","+CH: 2,9236","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=3,923.8,0,5","+CH: 3,9238","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=4,924.0,0,5","+CH: 4,9240","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=5,924.2,0,5","+CH: 5,9242","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=6,924.4,0,5","+CH: 6,9244","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+RXWIN2=923.2,DR2","+RXWIN2: 9232","+RXWIN2: ERR","",this->atTimeout,false,NULL);
+        } else if ( zone == DSKLORAE5_ZONE_AS923_2 ) {
+            ret &= sendATCommand("AT+DR=AS923","+DR: AS923","+DR: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=0,921.4,0,5","+CH: 0,9214","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=1,921.6,0,5","+CH: 1,9216","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=2,921.8,0,5","+CH: 2,9218","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=3,922.0,0,5","+CH: 3,9220","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=4,922.2,0,5","+CH: 4,9222","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=5,922.4,0,5","+CH: 5,9224","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=6,922.6,0,5","+CH: 6,9226","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+RXWIN2=921.4,DR2","+RXWIN2: 9214","+RXWIN2: ERR","",this->atTimeout,false,NULL);
+          } else if ( zone == DSKLORAE5_ZONE_AS923_3 ) {
+            ret &= sendATCommand("AT+DR=AS923","+DR: AS923","+DR: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=0,916.6,0,5","+CH: 0,9166","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=1,916.8,0,5","+CH: 1,9168","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=2,917.0,0,5","+CH: 2,9170","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=3,917.2,0,5","+CH: 3,9172","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=4,917.4,0,5","+CH: 4,9174","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=5,917.6,0,5","+CH: 5,9176","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=6,917.8,0,5","+CH: 6,9178","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+RXWIN2=916.6,DR2","+RXWIN2: 9166","+RXWIN2: ERR","",this->atTimeout,false,NULL);
+        } else if ( zone == DSKLORAE5_ZONE_AS923_4 ) {
+            ret &= sendATCommand("AT+DR=AS923","+DR: AS923","+DR: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=0,917.3,0,5","+CH: 0,9173","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=1,917.5,0,5","+CH: 1,9175","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=2,917.7,0,5","+CH: 2,9177","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=3,917.9,0,5","+CH: 3,9179","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=4,918.1,0,5","+CH: 4,9181","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=5,918.3,0,5","+CH: 5,9183","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+CH=6,918.5,0,5","+CH: 6,9185","+CH: ERR","",this->atTimeout,false,NULL);
+            ret &= sendATCommand("AT+RXWIN2=917.3,DR2","+RXWIN2: 9173","+RXWIN2: ERR","",this->atTimeout,false,NULL);
+        } else if ( zone == DSKLORAE5_ZONE_KR920 ) {
+            ret &= sendATCommand("AT+DR=KR920","+DR: KR920","+DR: ERR","",this->atTimeout,false,NULL);
+        } else if ( zone == DSKLORAE5_ZONE_IN865 ) {
+            ret &= sendATCommand("AT+DR=IN865","+DR: IN865","+DR: ERR","",this->atTimeout,false,NULL);
+        } else if ( zone == DSKLORAE5_ZONE_AU915 ) {
+            ret &= sendATCommand("AT+DR=AU915","+DR: AU915","+DR: ERR","",this->atTimeout,false,NULL);  
+            // unvalidate the subband other than 2
+            for ( int i=0 ; i < 72 ; i++ ) {
+                if ( i < 8 || i > 15 ) {
+                    sprintf(_cmd,"AT+CH=%d,OFF",i);
+                    ret &= sendATCommand(_cmd,"+CH: CH","+CH: ERR","",this->atTimeout,false,NULL);  
+                }
+            }
+        } else {
+            this->tracef(F("LoRaE5 - Invalid zone setting\r\n"));
+            return false;
+        }
+    }
+    if ( !ret ) {
+        this->tracef(F("LoRaE5 - Failed to configure zone\r\n"));
+        return false;
+    }
+    if ( ! withADR ) {
+        ret &= sendATCommand("AT+ADR=OFF","+ADR: OFF","+ADR: ON","",this->atTimeout,false,NULL);
+    } else {
+        ret &= sendATCommand("AT+ADR=ON","+ADR: ON","+ADR: OFF","",this->atTimeout,false,NULL);
+    }
+
     ret &= sendATCommand("AT+MODE=LWOTAA","+MODE: LWOTAA","+MODE: ERR","",this->atTimeout,false,NULL);    
     if ( !ret ) {
         this->tracef(F("LoRaE5 - Failed to configure credentials\r\n"));
@@ -1018,7 +1151,7 @@ bool Disk91_LoRaE5::processATResponse() {
   if ( duration > this->maxDuration ) {
     this->runningCommand = false;
     this->statusCommand = false;
-    this->tracef(F("LoRaE5 - timeout\r\n"));
+    //this->tracef(F("LoRaE5 - timeout\r\n"));
     return true;
   }
   // process serial line response
