@@ -414,14 +414,11 @@ bool Disk91_LoRaE5::begin(
 
     // Verify module response
     this->runningCommand = false;
-    if ( !sendATCommand("AT","+AT: OK","","",this->atTimeout,false,NULL) ) {
-        // retry
-        if ( !sendATCommand("AT","+AT: OK","","",this->atTimeout,false,NULL) ) {
-            if ( !this->isHwSerial ) {
-                this->e5SwUart->end();
-            }
-            return false;
+    if ( !sendATCommand("AT","+AT: OK","","",1000,false,NULL) ) {
+        if ( !this->isHwSerial ) {
+            this->e5SwUart->end();
         }
+        return false;
     }
     
     this->tracef(F("LoRaE5 - initialization OK\r\n"));
