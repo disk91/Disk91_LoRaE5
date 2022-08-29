@@ -1,0 +1,67 @@
+{
+	"name": "Disk91 LoRa-E5 library",
+	"version": "1.0.0",
+	"description": "a Disk91 Library for the LoRaWAN LoRa-E5 Module",
+	"keywords": "LoRa, E5, disk91, Helium",
+	"homepage": "https://www.disk91.com",
+	"repository": 	
+	{
+		"type": "git",
+		"url":  "https://github.com/disk91/Disk91_LoRaE5.git"
+	},
+	"authors":
+	{
+		"author": "Paul Pinault",
+		"email": "disk_91@hotmail.com",
+		"url": "https://www.disk91.com/contact-me/",
+		"maintainter": true
+	},
+	"license": "BSD",
+	"frameworks": "arduino",
+	"platforms": "atmelsam",
+	"headers": "disk91_LoRaE5.h",
+	"examples": [
+		{
+			"name": "example1",
+			"base": "examples/example1",
+			"files": [
+				"file1",
+				"file2",
+				"file3"
+			]
+		},
+		{
+			"name": "ExampleFile1",
+			"base": "examples/ExampleFile",
+			"files": ["file1.cpp", "file.h"]
+		}
+	],
+	"dependencies": 
+		{
+		"ownername/arduino.h": "latest",
+		"ownername/softwareserial.h": "latest"
+		},
+	"export": [
+		{
+			"include":{},
+		},
+		{
+			"exclude":{},
+		}
+	],
+	"scripts": "<TBC>",
+	"build": 
+		{
+			"flags": "",
+			"unflags": "",
+			"includDir": "",
+			"srcDir": "",
+			"srcFilter": "",
+			"extraScript": "",
+			"libArchive": "",
+			"libLDFMode": "",
+			"libCompatMode": "",
+			"builder": ""
+		},
+	}
+}
