@@ -176,8 +176,11 @@ protected:
     );
 
 public:
+    Disk91_LoRaE5(                      // Required for use from other libraries - no-arg is called due to
+    );                                  //  #include "disk91_LoRaE5.h" before instantiation of calling class
+
     Disk91_LoRaE5(
-        bool       nothing = false       // if anyone can explain me why w/o param the constructer generate compilation error ?!?
+        bool       nothing             // if anyone can explain me why w/o param the constructer generate compilation error ?!?
     );
 
     Disk91_LoRaE5(
@@ -186,7 +189,7 @@ public:
     );
 
     Disk91_LoRaE5(
-        Serial_  * logSerial = NULL      // When set, the library debug is enabled               
+        Serial_  * logSerial             // When set, the library debug is enabled
     );
 
     ~Disk91_LoRaE5();

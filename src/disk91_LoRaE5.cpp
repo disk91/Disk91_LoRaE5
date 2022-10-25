@@ -265,6 +265,14 @@ Disk91_LoRaE5::Disk91_LoRaE5(
     this->estimatedDCMs = 0;
 }
 
+Disk91_LoRaE5::Disk91_LoRaE5(
+) {
+    this->debugUart = NULL;
+    this->runningCommand = false;
+    this->atTimeout = __DSKLORAE5_DEFAULT_AT_TMOUT;
+    this->currentZone = DSKLORAE5_ZONE_UNDEFINED;
+    this->estimatedDCMs = 0;
+}
 
 Disk91_LoRaE5::~Disk91_LoRaE5(){
       this->end();              
