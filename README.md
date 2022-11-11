@@ -55,11 +55,35 @@ LoRa-E5 is a LoRaWAN module make by Seeed studio.
         bool      withADR = false   // when true, the ADR is turned ON
     );
 
+    bool setup(                     // Setup the LoRaWAN stack without setting credential, needed for some sensecap board apparently
+        uint8_t   zone,             // radio zone selection
+        bool      selfDC = false,   // when true, the duty cycle management is not managed by the module but the user application
+        bool      withADR = false   // when true, the ADR is turned ON
+    );
+
     bool setup(                     // Setup the LoRaWAN stack
         uint8_t   zone,             // radio zone selection
         uint8_t   deveui[],         // deviceEUI in the normal order for the bytes
         uint8_t   appeui[],         // applicationEUI in the normal order for the bytes
         uint8_t   appkey[],         // applicationKEY in the normal order for the bytes
+        bool      selfDC = false,   // when true, the duty cycle management is not managed by the module but the user application
+        bool      withADR = false   // when true, the ADR is turned ON
+    );
+
+    bool setup(  // string like setup
+        uint8_t   zone,             // radio zone selection
+        String    deveui,           // deviceEUI in the normal order for the bytes
+        String    appeui,           // applicationEUI in the normal order for the bytes
+        String    appkey,           // applicationKEY in the normal order for the bytes
+        bool      selfDC = false,   // when true, the duty cycle management is not managed by the module but the user application
+        bool      withADR = false   // when true, the ADR is turned ON
+    );
+
+    bool setup(  // c_str like setup
+        uint8_t   zone,             // radio zone selection
+        char    * deveui,           // deviceEUI in the normal order for the bytes
+        char    * appeui,           // applicationEUI in the normal order for the bytes
+        char    * appkey,           // applicationKEY in the normal order for the bytes
         bool      selfDC = false,   // when true, the duty cycle management is not managed by the module but the user application
         bool      withADR = false   // when true, the ADR is turned ON
     );

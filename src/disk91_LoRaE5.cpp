@@ -244,6 +244,15 @@ Disk91_LoRaE5::Disk91_LoRaE5(
     this->estimatedDCMs = 0;
 }
 
+Disk91_LoRaE5::Disk91_LoRaE5() {
+    this->debugUart = NULL;
+    this->runningCommand = false;
+    this->atTimeout = __DSKLORAE5_DEFAULT_AT_TMOUT;
+    this->currentZone = DSKLORAE5_ZONE_UNDEFINED;
+    this->estimatedDCMs = 0;
+}
+
+
 Disk91_LoRaE5::Disk91_LoRaE5(
     bool nothing                            // Strange complilation behavior, no param is not accepted
 ){
@@ -473,6 +482,69 @@ bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack with the stored credentia
 }
 
 
+bool Disk91_LoRaE5::setup(  // string like setup
+    uint8_t   zone,         // radio zone selection
+    String    deveui,       // deviceEUI in the normal order for the bytes
+    String    appeui,       // applicationEUI in the normal order for the bytes
+    String    appkey,       // applicationKEY in the normal order for the bytes
+    bool      selfDC,       // when true, the duty cycle management is not managed by the module but the user application
+    bool      withADR       // when true, the ADR is turned ON
+) {
+    return this->setup(zone, deveui.c_str(),appeui.c_str(), appkey.c_str(), selfDC, withADR);
+}
+
+
+uint8_t Disk91_LoRaE5::convertStrToHex( // convert a 2 char string into a 8 bit unsigned value
+    char * str                          // string pointer to be converted
+) {
+    uint8_t r = 0;
+    for ( int i = 0 ; i < 2 ; i++ ) {
+        r <<= 4;
+        if( str[i] >= '0' && str[i] <= '9' ) r = str[i] - '0';
+        else if( str[i] >= 'A' && str[i] <= 'F' ) r = str[i] - 'A';
+        else if( str[i] >= 'a' && str[i] <= 'f' ) r = str[i] - 'a';
+    }
+    return r;
+}
+
+bool Disk91_LoRaE5::setup(  // c_str like setup
+    uint8_t   zone,         // radio zone selection
+    char    * deveui,       // deviceEUI in the normal order for the bytes
+    char    * appeui,       // applicationEUI in the normal order for the bytes
+    char    * appkey,       // applicationKEY in the normal order for the bytes
+    bool      selfDC,       // when true, the duty cycle management is not managed by the module but the user application
+    bool      withADR       // when true, the ADR is turned ON
+) {
+    uint8_t _deveui[8];
+    uint8_t _appeui[8];
+    uint8_t _appkey[16];
+
+    if ( strlen(deveui) != 16 || strlen(appeui) != 16 || strlen(appkey) != 32 ) {
+        this->tracef(F("LoRaE5 - setup invalid parameters\r\n"));
+        return false;
+    } 
+
+    for ( int k = 0 ; k < 8 ; k++ ) {
+        _deveui[k] = convertStrToHex(&deveui[2*k]);
+        _appeui[k] = convertStrToHex(&appeui[2*k]);
+    }
+    for ( int k = 0 ; k < 16 ; k++ ) {
+        _appkey[k] = convertStrToHex(&appkey[2*k]);
+    }
+
+    return setup(zone, _deveui, _appeui, _appkey, selfDC, withADR);
+}
+
+bool Disk91_LoRaE5::setup(  // setup without changing the ids
+    uint8_t   zone,         // radio zone selection
+    bool      selfDC,       // when true, the duty cycle management is not managed by the module but the user application
+    bool      withADR       // when true, the ADR is turned ON
+) {
+
+    return setup(zone, (uint8_t *)NULL, (uint8_t *)NULL, (uint8_t *)NULL, selfDC, withADR);
+}
+
+
 bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack
     uint8_t   zone,         // radio zone selection
     uint8_t   deveui[],     // deviceEUI in the normal order for the bytes
@@ -584,49 +656,55 @@ bool Disk91_LoRaE5::setup(  // Setup the LoRaWAN stack
     }
 
     // Setup Ids
-    sprintf(_cmd,"AT+ID=DevEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
-      deveui[0],
-      deveui[1],
-      deveui[2],
-      deveui[3],
-      deveui[4],
-      deveui[5],
-      deveui[6],
-      deveui[7]
-    );
-    ret &= sendATCommand(_cmd,"+ID: DevEui","+ID: ERR","",this->atTimeout,false,NULL);
-    
-    sprintf(_cmd,"AT+ID=AppEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
-      appeui[0],
-      appeui[1],
-      appeui[2],
-      appeui[3],
-      appeui[4],
-      appeui[5],
-      appeui[6],
-      appeui[7]
-    );
-    ret &= sendATCommand(_cmd,"+ID: AppEui","+ID: ERR","",this->atTimeout,false,NULL);
+    if ( deveui != NULL ) {
+        sprintf(_cmd,"AT+ID=DevEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
+          deveui[0],
+          deveui[1],
+          deveui[2],
+          deveui[3],
+          deveui[4],
+          deveui[5],
+          deveui[6],
+          deveui[7]
+        );
+        ret &= sendATCommand(_cmd,"+ID: DevEui","+ID: ERR","",this->atTimeout,false,NULL);
+    }
 
-    sprintf(_cmd,"AT+KEY=APPKEY,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-      appkey[0],
-      appkey[1],
-      appkey[2],
-      appkey[3],
-      appkey[4],
-      appkey[5],
-      appkey[6],
-      appkey[7],
-      appkey[8],
-      appkey[9],
-      appkey[10],
-      appkey[11],
-      appkey[12],
-      appkey[13],
-      appkey[14],
-      appkey[15]
-    );
-    ret &= sendATCommand(_cmd,"+KEY: APPKEY","+KEY: ERR","",this->atTimeout,false,NULL);
+    if ( appeui != NULL ) {
+        sprintf(_cmd,"AT+ID=AppEUI,%02X%02X%02X%02X%02X%02X%02X%02X",
+          appeui[0],
+          appeui[1],
+          appeui[2],
+          appeui[3],
+          appeui[4],
+          appeui[5],
+          appeui[6],
+          appeui[7]
+        );
+        ret &= sendATCommand(_cmd,"+ID: AppEui","+ID: ERR","",this->atTimeout,false,NULL);
+    }
+
+    if ( appkey != NULL ) {
+        sprintf(_cmd,"AT+KEY=APPKEY,%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+          appkey[0],
+          appkey[1],
+          appkey[2],
+          appkey[3],
+          appkey[4],
+          appkey[5],
+          appkey[6],
+          appkey[7],
+          appkey[8],
+          appkey[9],
+          appkey[10],
+          appkey[11],
+          appkey[12],
+          appkey[13],
+          appkey[14],
+          appkey[15]
+        );
+        ret &= sendATCommand(_cmd,"+KEY: APPKEY","+KEY: ERR","",this->atTimeout,false,NULL);
+    }
     ret &= sendATCommand("AT+MODE=LWOTAA","+MODE: LWOTAA","+MODE: ERR","",this->atTimeout,false,NULL);    
     if ( !ret ) {
         this->tracef(F("LoRaE5 - Failed to configure credentials\r\n"));

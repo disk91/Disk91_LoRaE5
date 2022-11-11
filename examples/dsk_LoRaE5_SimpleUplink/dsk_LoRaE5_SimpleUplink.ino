@@ -3,9 +3,23 @@
 
 Disk91_LoRaE5 lorae5(false); // true, false whatever
 
+// best practice in terms of security (creadential are harder to be identified in the firwmare bytestream) and code size
 uint8_t deveui[] = { 0xDC, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xEE };
 uint8_t appeui[] = { 0xCD, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xAD };
 uint8_t appkey[] = { 0x2A, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xA1, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0xXX, 0x43 };
+
+/*
+// alternate solutions to declare credentials
+char deveui[] = "DCXXXXXXXXXXXXEE";
+char appeui[] = "CDXXXXXXXXXXXXAD";
+char appkey[] = "2AXXXXXXXXXXXXA1XXXXXXXXXXXXXX43";
+
+// another one
+String deveui = "DCXXXXXXXXXXXXEE";
+String appeui = "CDXXXXXXXXXXXXAD";
+String appkey = "2AXXXXXXXXXXXXA1XXXXXXXXXXXXXX43";
+*/
+
 
 void setup() {
 
