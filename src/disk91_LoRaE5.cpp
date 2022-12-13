@@ -728,7 +728,7 @@ bool Disk91_LoRaE5::sendReceive_sync(  // send a message on LoRaWan expert an ac
         uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
         uint8_t     retries             // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
 ){
-    this->sendReceive( port, data, sz, true, NULL, rxBuffer, rxSize, rxPort, sf, pwr, retries, false );
+    return this->sendReceive( port, data, sz, true, NULL, rxBuffer, rxSize, rxPort, sf, pwr, retries, false );
 }
 
 
@@ -741,14 +741,14 @@ bool Disk91_LoRaE5::send_sync(    // send a message on LoRaWan, return true when
         uint8_t     pwr,                // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
         uint8_t     retries             // Number of retry, use DSKLORAE5_RT_UNCHANGED to keep the previous one. retry = 0 means 1 uplink, no retry
 ){
-    this->sendReceive( port, data, sz, acked, NULL, NULL, NULL, NULL, sf, pwr, retries, false );
+    return this->sendReceive( port, data, sz, acked, NULL, NULL, NULL, NULL, sf, pwr, retries, false );
 }
 
 bool Disk91_LoRaE5::join_sync(    // send a message on LoRaWan, return true when sent is a success 
         uint8_t     sf,             // Spread Factor , use DSKLORAE5_SF_UNCHANGED to keep the previous one
         uint8_t     pwr             // Transmission power, use DSKLORAE5_DW_UNCHANGED to keep the previous one
 ){
-    this->sendReceive( 0, NULL, 0, false, NULL, NULL, NULL, NULL, sf, pwr, 0, false );
+    return this->sendReceive( 0, NULL, 0, false, NULL, NULL, NULL, NULL, sf, pwr, 0, false );
 }
 
 
