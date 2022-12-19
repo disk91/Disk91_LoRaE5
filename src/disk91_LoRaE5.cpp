@@ -494,19 +494,6 @@ bool Disk91_LoRaE5::setup(  // string like setup
 }
 
 
-uint8_t Disk91_LoRaE5::convertStrToHex( // convert a 2 char string into a 8 bit unsigned value
-    char * str                          // string pointer to be converted
-) {
-    uint8_t r = 0;
-    for ( int i = 0 ; i < 2 ; i++ ) {
-        r <<= 4;
-        if( str[i] >= '0' && str[i] <= '9' ) r = str[i] - '0';
-        else if( str[i] >= 'A' && str[i] <= 'F' ) r = str[i] - 'A';
-        else if( str[i] >= 'a' && str[i] <= 'f' ) r = str[i] - 'a';
-    }
-    return r;
-}
-
 bool Disk91_LoRaE5::setup(  // c_str like setup
     uint8_t   zone,         // radio zone selection
     char    * deveui,       // deviceEUI in the normal order for the bytes
@@ -523,14 +510,14 @@ bool Disk91_LoRaE5::setup(  // c_str like setup
         this->tracef(F("LoRaE5 - setup invalid parameters\r\n"));
         return false;
     } 
-
-    for ( int k = 0 ; k < 8 ; k++ ) {
-        _deveui[k] = convertStrToHex(&deveui[2*k]);
-        _appeui[k] = convertStrToHex(&appeui[2*k]);
-    }
-    for ( int k = 0 ; k < 16 ; k++ ) {
-        _appkey[k] = convertStrToHex(&appkey[2*k]);
-    }
+    uint8_t sz = 8;
+    extractHexStr(deveui, _deveui, &sz);
+    if ( sz != 8 ) return false;
+    extractHexStr(appeui, _appeui, &sz);
+    if ( sz != 8 ) return false;
+    sz = 16;
+    extractHexStr(appkey, _appkey, &sz);
+    if ( sz != 16 ) return false;
 
     return setup(zone, _deveui, _appeui, _appkey, selfDC, withADR);
 }
