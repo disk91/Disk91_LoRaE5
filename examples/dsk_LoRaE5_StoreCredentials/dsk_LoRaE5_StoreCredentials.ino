@@ -46,12 +46,7 @@ void setup() {
   }
 
   // Setup the LoRaWan Credentials
-  if ( ! lorae5.setup(
-          DSKLORAE5_ZONE_EU868,     // LoRaWan Radio Zone EU868 here
-          deveui,
-          appeui,
-          appkey
-       ) ){
+  if ( ! lorae5.setup() ){
     Serial.println("LoRa E5 Setup Failed");
     while(1);         
   }
