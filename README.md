@@ -138,3 +138,12 @@ LoRa-E5 is a LoRaWAN module make by Seeed studio.
 ## Changelog
 ### 2022-06-19 version 1.0.0
 Initial version.
+
+### 2022-11-11 version 1.1.0
+Allows to initi credential from different format like char * and String
+
+### 2022-12-14 version 1.1.1
+Fix missing return on some of setup helper
+
+### 2022-12-19 version 1.1.2
+Fix a bug preventing to correctly transform char * & String into int8_t for credentials
