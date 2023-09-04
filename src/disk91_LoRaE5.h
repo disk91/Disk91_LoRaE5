@@ -15,7 +15,16 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 #include <stdint.h>
-
+#ifdef ESP_ARDUINO_VERSION // XIAOS3 ESP32
+    #define Uart HardwareSerial // HardwareSerial definition for ESP32
+    #if ARDUINO_USB_MODE
+        #if ARDUINO_USB_CDC_ON_BOOT
+            #define Serial_ HWCDC
+        #else
+            #define Serial_ HardwareSerial
+        #endif
+    #endif
+#endif
 // ==========================================================
 // Setup options
 
@@ -134,8 +143,10 @@ protected:
     bool                  isHwSerial;       // true when a hw serial is used
 
     void tracef(const char *format, ...);         // Debug traces
+    #ifndef ESP_ARDUINO_VERSION
     #ifndef DSKLORAE5_DISABLE_FSTR
     void tracef(const __FlashStringHelper *format, ...);
+    #endif
     #endif
 
     bool sendATCommand(                     // Send an AT command to the E5 module
